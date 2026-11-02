@@ -1,4 +1,4 @@
-# configtree: binding a `Set<Integer>` first breaks a later `Integer` binding
+# configtree: binding a collection first breaks a later binding of the same element type
 
 Two `@ConfigurationProperties` records read their values from a config tree
 (`spring.config.import=configtree:configtree/`):
@@ -15,7 +15,7 @@ The application binds them in that order on purpose: the `@Bean` method in `Repr
 
 ```
 ./mvnw spring-boot:run          # run from the project root (the configtree/ path is relative)
-./mvnw test                     # 6 tests: 3 fail (the bug), 3 pass (controls)
+./mvnw test                     # 106 tests: 60 fail (the bug), 46 pass (controls and String)
 ./mvnw test -Dspring-boot.version=3.5.16   # any other Boot version
 ```
 
@@ -48,6 +48,10 @@ Failed to bind properties under 'scalar.timeout' to java.lang.Integer:
   - `configTreeScalarBoundFirst`: the same config tree with the order reversed. Passes.
   - `stringSourceCollectionBoundFirst`: the same values as plain `String` properties. Passes.
 - `ConfigTreeBinderTests`: the same failure with a bare `Binder` and a fresh `ApplicationConversionService`, so no application context is involved.
+- `ElementTypeTests`: the same scenario for 20 element types, each as `Set<T>`, `List<T>` and `T[]`, with a fresh `Binder` per case.
+  - A collection of T then a single T, from a config tree: fails for `Integer`, `Long`, `Short`, `Byte`, `Double`, `Float`, `Boolean`, `Character`, `BigDecimal`, `BigInteger`, `UUID`, `LocalDate`, `Duration`, `Period`, `DataSize`, an enum, `Locale`, `Charset` and `URI` (57 cases). Passes for `String`.
+  - Controls: the single value bound first, and the same values as plain `String` properties. Both pass for every type.
+  - Not covered by a test: a primitive target (`int` after `Set<Integer>`) also binds fine.
 - `ConversionServiceTests`: the smallest form. After `canConvert(PropertyFileContent -> Set<Integer>)`, `canConvert(PropertyFileContent -> Integer)` returns `false` on the same `ApplicationConversionService`.
 
 The order in `@EnableConfigurationProperties({A.class, B.class})` cannot be used to control the binding order: `EnableConfigurationPropertiesRegistrar` collects the types into a `Set`.
